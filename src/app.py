@@ -1,27 +1,90 @@
-import gzip
+import requests
 import json
+import os
+import sys
+import eth_abi
 import pandas as pd
+import numpy as np
+from ml import ML
+from scaler import Scaler
 
+iexec_out = os.environ['IEXEC_OUT']
+iexec_in = os.environ['IEXEC_IN']
 
-class Data:
-    def getDataFrame(nRows):
-        contents = gzip.open('get.gz', 'rt', encoding='utf-8')
-        data = contents.read()
-        data_json = json.loads(data)
-        df = pd.DataFrame(data_json)
-        df = Data.rename(df)
-        df = df.iloc[-nRows:]
-        print(df)
-        return df
+class Utils:
+   
+    def ensureDeterministicOutput(response_json,unix_timestamp):
+        for x in range(len(response_json)):
+            if(int(response_json[x][6]) > unix_timestamp):
+                del response_json[x]
+        return response_json
 
-    def rename(df):
-        df = df.rename(columns={df.columns[0]: 'openTime', df.columns[1]: 'open',
-        df.columns[2]: 'high', df.columns[3]: 'low',df.columns[4]: 'close', df.columns[5]: 'volume',
-        df.columns[6]: 'closeTime',df.columns[7]: 'quoteAssetVolume',df.columns[8]: 'numberOfTrades',
-        df.columns[9]: 'takerBuyBaseAssetVolume',df.columns[10]: 'takerBuyQuoteAssetVolume',df.columns[11]: 'ignore', })
-        return df
+    def parser(klines):
+        seq_x = list()
+        for row in klines:
+            row[0] = int(row[0])    #open time
+            row[1] = float(row[1])  #open
+            row[2] = float(row[2])  #high
+            row[3] = float(row[3])  #low
+            row[4] = float(row[4])  #close
+            row[5] = float(row[5])  #volume
+            row[6] = int(row[6])    #close time
+            row[7] = float(row[7])  #quote asset volume
+            row[8] = int(row[8])    #number of trades
+            row[9] = float(row[9])  #taker buy base asset volume
+            row[10] = float(row[10])#taker buy quote asset volume
+            row[11] = float(row[11])#ignore
+            seq_x.append(row)
+        return np.array(seq_x)
+        
+class Binance:
+
+    def fetchCandlesticks():
+        url = 'https://api.binance.com/api/v3/klines'
+        params = {
+            'symbol': "BTCUSDT",
+            'interval': "1h",
+            'limit': '500',
+            'endTime' : unix_timestamp
+        }
+        json_data = requests.get(url, params=params).json()
+        json_data = Utils.ensureDeterministicOutput(json_data,unix_timestamp)
+        seq_x = Utils.parser(json_data)
+        return seq_x
 
 
 if __name__ == '__main__':
-    Data.getData(5)
+    print("oracle started")
+    prediction = 0  # default returned value to avoid attack on scheduler
     
+    try:
+        unix_timestamp = int(sys.argv[1])
+
+        #fetch data
+        seq_x = Binance.fetchCandlesticks()
+
+        #edit data
+        seq_x = seq_x[-240:,[2,3,7]]
+        scaler = Scaler()
+        seq_x_scaled = scaler.fit_transform(seq_x)
+        seq_x = np.reshape(seq_x_scaled,(1,240,2))
+
+        #load model
+        ml = ML("test.h5")
+
+        #predict
+        prediction_scaled = ml.predict(seq_x_scaled)
+
+        #prepare result
+        prediction = scaler.inverse(prediction_scaled)
+        prediction = int(prediction*1000)
+
+    except Exception as e:
+        print('Execution Failure: {}'.format(e))
+
+    callback_data = eth_abi.encode_abi(['uint256'],  [prediction]).hex()
+    callback_data = '0x{}'.format(callback_data)
+    print('callback_data: {}'.format(callback_data))
+    print('prediction: {}'.format(prediction))
+    with open(iexec_out + '/computed.json', 'w+') as f:
+        json.dump({"callback-data": callback_data, "prediction_debug" : prediction}, f)

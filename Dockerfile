@@ -1,7 +1,11 @@
-FROM python:3.7.3-alpine3.10
+FROM tensorflow/tensorflow:latest
 ### install python dependencies if you have some
-RUN pip3 install pyfiglet
 
-COPY ./src /app
+RUN pip3 install pandas
+RUN pip3 install keras
+RUN pip3 install eth_abi
+RUN pip3 install numpy
+COPY ./src /src
 
-ENTRYPOINT ["python", "/app/app.py"]
+
+ENTRYPOINT ["python3", "/src/app.py"]
