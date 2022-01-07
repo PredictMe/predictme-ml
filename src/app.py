@@ -67,13 +67,13 @@ if __name__ == '__main__':
         seq_x = seq_x[-240:,[2,3,7]]
         scaler = Scaler()
         seq_x_scaled = scaler.fit_transform(seq_x)
-        seq_x = np.reshape(seq_x_scaled,(1,240,2))
+        seq_x_scaled_reshaped = np.reshape(seq_x_scaled,(1,240,2))
 
         #load model
         ml = ML("test.h5")
 
         #predict
-        prediction_scaled = ml.predict(seq_x_scaled)
+        prediction_scaled = ml.predict(seq_x_scaled_reshaped)
 
         #prepare result
         prediction = scaler.inverse(prediction_scaled)
