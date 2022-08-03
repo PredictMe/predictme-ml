@@ -5,6 +5,7 @@ import sys
 import eth_abi
 import pandas as pd
 import numpy as np
+import time
 from ml import ML
 from scaler import Scaler
 
@@ -58,8 +59,10 @@ if __name__ == '__main__':
     prediction = 0  # default returned value to avoid attack on scheduler
     
     try:
-        unix_timestamp = int(sys.argv[1])
-
+        milliseconds = int(round(time.time() * 1000))
+        #unix_timestamp = int(sys.argv[1])
+        unix_timestamp = milliseconds
+        print(unix_timestamp)
         #fetch data
         seq_x = Binance.fetchCandlesticks()
 
@@ -77,7 +80,7 @@ if __name__ == '__main__':
 
         #prepare result
         prediction = scaler.inverse(prediction_scaled)
-        prediction = int(prediction*1000)
+        prediction = int(prediction)
 
     except Exception as e:
         print('Execution Failure: {}'.format(e))
@@ -86,5 +89,7 @@ if __name__ == '__main__':
     callback_data = '0x{}'.format(callback_data)
     print('callback_data: {}'.format(callback_data))
     print('prediction: {}'.format(prediction))
+    with open(iexec_out + '/result.txt', 'w+') as fout:
+        fout.write("done")
     with open(iexec_out + '/computed.json', 'w+') as f:
-        json.dump({"callback-data": callback_data, "prediction_debug" : prediction}, f)
+        json.dump({"callback-data": callback_data, "prediction_debug" : prediction, "deterministic-output-path" : iexec_out + '/result.txt'}, f)

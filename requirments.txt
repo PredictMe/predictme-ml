@@ -1,5 +1,4 @@
 eth_abi
-keras
 pandas
 numpy
 requests
