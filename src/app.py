@@ -40,10 +40,10 @@ class Utils:
         
 class Binance:
 
-    def fetchCandlesticks():
+    def fetchCandlesticks(symbol):
         url = 'https://api.binance.com/api/v3/klines'
         params = {
-            'symbol': "BTCUSDT",
+            'symbol': symbol,
             'interval': "1h",
             'limit': '500',
             'endTime' : unix_timestamp
@@ -60,11 +60,15 @@ if __name__ == '__main__':
     
     try:
         milliseconds = int(round(time.time() * 1000))
-        #unix_timestamp = int(sys.argv[1])
+        symbol = str(sys.argv[1])
         unix_timestamp = milliseconds
-        print(unix_timestamp)
+        
         #fetch data
-        seq_x = Binance.fetchCandlesticks()
+        seq_x = Binance.fetchCandlesticks(symbol)
+
+        #hold value for reference
+        last_value = seq_x[-1]
+        last_value= last_value[1]
 
         #edit data
         seq_x = seq_x[-240:,[2,3,7]]
@@ -80,16 +84,20 @@ if __name__ == '__main__':
 
         #prepare result
         prediction = scaler.inverse(prediction_scaled)
-        prediction = int(prediction)
+        prediction = float(prediction)
 
+        #compare from reference
+        if(prediction > last_value):
+            print("UP")
+            prediction = "UP"
+        else:
+            print("DOWN")
+            prediction = "DOWN"
     except Exception as e:
         print('Execution Failure: {}'.format(e))
 
-    callback_data = eth_abi.encode_abi(['uint256'],  [prediction]).hex()
-    callback_data = '0x{}'.format(callback_data)
-    print('callback_data: {}'.format(callback_data))
     print('prediction: {}'.format(prediction))
-    with open(iexec_out + '/result.txt', 'w+') as fout:
-        fout.write("done")
+    with open(iexec_out + '/result.json', 'w+') as fout:
+        json.dump({"prediction" : prediction}, fout)
     with open(iexec_out + '/computed.json', 'w+') as f:
-        json.dump({"callback-data": callback_data, "prediction_debug" : prediction, "deterministic-output-path" : iexec_out + '/result.txt'}, f)
+        json.dump({"deterministic-output-path" : iexec_out + '/result.json'}, f)
