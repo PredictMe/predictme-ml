@@ -40,7 +40,7 @@ class Utils:
         
 class Binance:
 
-    def fetchCandlesticks(symbol):
+    def fetchCandlesticks(symbol,unix_timestamp):
         url = 'https://api.binance.com/api/v3/klines'
         params = {
             'symbol': symbol,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         unix_timestamp = milliseconds
         
         #fetch data
-        seq_x = Binance.fetchCandlesticks(symbol)
+        seq_x = Binance.fetchCandlesticks(symbol,unix_timestamp)
 
         #hold value for reference
         last_value = seq_x[-1]
